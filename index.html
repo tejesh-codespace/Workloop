@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WorkLoop — Find Local Jobs Near You</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    body { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+    .pulse-ring {
+      animation: pulseRing 1.4s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+    }
+    @keyframes pulseRing {
+      0% { transform: scale(0.96); box-shadow: 0 0 0 0 rgba(234, 88, 12, 0.6); }
+      70% { transform: scale(1.02); box-shadow: 0 0 0 12px rgba(234, 88, 12, 0); }
+      100% { transform: scale(0.96); box-shadow: 0 0 0 0 rgba(234, 88, 12, 0); }
+    }
+    .wa-bg {
+      background-color: #EFEAE2;
+      background-image: radial-gradient(#D5CEC2 0.7px, transparent 0.7px);
+      background-size: 16px 16px;
+    }
+    .card-focus {
+      box-shadow: 0 0 0 3px #EA580C;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col">
+
+  <!-- Toast -->
+  <div id="toast" class="fixed bottom-5 right-5 z-50 hidden max-w-sm rounded-xl bg-slate-900 text-white px-4 py-3 shadow-xl text-sm">
+    <span id="toastText"></span>
+  </div>
+
+  <!-- Clean Top Navbar -->
+  <header class="sticky top-0 z-40 bg-white border-b border-slate-200">
+    <div class="max-w-5xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-xl bg-teal-700 text-white flex items-center justify-center font-extrabold text-base">WL</div>
+        <div>
+          <h1 class="text-lg font-extrabold tracking-tight text-slate-900 leading-none">WorkLoop</h1>
+          <p class="text-[11px] text-slate-500 mt-0.5">Local jobs for skilled workers</p>
+        </div>
+      </div>
+
+      <nav class="flex items-center gap-1.5 flex-wrap" aria-label="Main Navigation">
+        <button id="navJobs" type="button" class="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-teal-700 text-white flex items-center gap-1.5">
+          <i data-lucide="briefcase" class="w-4 h-4"></i> Jobs
+        </button>
+        <button id="navWhatsapp" type="button" class="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold text-slate-700 hover:bg-slate-100 flex items-center gap-1.5">
+          <i data-lucide="message-circle" class="w-4 h-4 text-emerald-600"></i> WhatsApp Alerts
+        </button>
+        <button id="navEmployer" type="button" class="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold text-slate-700 hover:bg-slate-100 flex items-center gap-1.5">
+          <i data-lucide="plus-circle" class="w-4 h-4"></i> Employers
+          <span id="empBadge" class="px-1.5 py-0.5 text-[10px] rounded-full bg-orange-600 text-white font-bold">2</span>
+        </button>
+        <button id="navChats" type="button" class="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold text-slate-700 hover:bg-slate-100 flex items-center gap-1.5">
+          <i data-lucide="messages-square" class="w-4 h-4"></i> Chats
+          <span id="chatBadge" class="px-1.5 py-0.5 text-[10px] rounded-full bg-teal-100 text-teal-800 font-bold">1</span>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="max-w-5xl w-full mx-auto px-4 py-6 flex-1">
+
+    <!-- ===================== 1. JOBS (JOB SEEKER VIEW) ===================== -->
+    <section id="viewJobs" class="space-y-5">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div class="inline-flex rounded-xl bg-slate-200/70 p-1">
+          <button id="tabFeed" type="button" class="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-white text-slate-900 shadow-sm">Open Jobs</button>
+          <button id="tabProfile" type="button" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-600">My Profile &amp; Work</button>
+        </div>
+        <span id="activeUserTag" class="text-xs text-slate-600 font-medium"></span>
+      </div>
+
+      <!-- OPEN JOBS FEED -->
+      <div id="paneFeed" class="space-y-4">
+        <!-- Simple Voice Search Card -->
+        <div class="rounded-2xl bg-teal-800 text-white p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div class="space-y-1">
+            <h2 class="text-xl sm:text-2xl font-extrabold">Find work near you</h2>
+            <p class="text-xs sm:text-sm text-teal-100">Tap the mic and speak in your language, or pick a category below.</p>
+            <p id="voiceResultText" class="text-xs text-amber-200 min-h-[16px]"></p>
+          </div>
+          <div class="flex items-center gap-2 shrink-0">
+            <select id="langSelect" aria-label="Language" class="rounded-xl bg-white/15 border border-white/25 text-white text-xs font-semibold px-2.5 py-2.5">
+              <option value="en-IN" class="text-slate-900">English</option>
+              <option value="hi-IN" class="text-slate-900">हिन्दी</option>
+              <option value="kn-IN" class="text-slate-900">ಕನ್ನಡ</option>
+              <option value="ta-IN" class="text-slate-900">தமிழ்</option>
+            </select>
+            <button id="voiceSearchBtn" type="button" class="px-4 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold text-sm flex items-center gap-2 shadow">
+              <i data-lucide="mic" class="w-4 h-4"></i>
+              <span id="voiceBtnText">Speak</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Clean Search & Filters -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-4 space-y-3">
+          <div class="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
+            <div class="sm:col-span-5 relative">
+              <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-3"></i>
+              <input id="searchBox" type="text" placeholder="Search carpenter, housemaid, plumber, area..." class="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-teal-700" />
+            </div>
+            <div class="sm:col-span-4">
+              <select id="durationFilter" aria-label="Work Duration" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm bg-white">
+                <option value="all">All Durations</option>
+                <option value="Daily Wage">Daily Wage</option>
+                <option value="10–15 Day Gig">10–15 Day Gig</option>
+                <option value="Monthly">Monthly</option>
+              </select>
+            </div>
+            <div class="sm:col-span-3">
+              <button id="openWaQuickBtn" type="button" class="w-full px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 h-full">
+                <i data-lucide="message-circle" class="w-4 h-4"></i> Get Daily WhatsApp Alerts
+              </button>
+            </div>
+          </div>
+          <div id="roleChips" class="flex flex-wrap gap-1.5"></div>
+        </div>
+
+        <!-- Job Cards -->
+        <div id="jobsGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+      </div>
+
+      <!-- MY PROFILE & PAST WORK -->
+      <div id="paneProfile" class="hidden grid grid-cols-1 lg:grid-cols-12 gap-5">
+        <div class="lg:col-span-7 bg-white rounded-2xl border border-slate-200 p-5 space-y-4">
+          <div class="flex items-center justify-between gap-2 pb-3 border-b border-slate-100">
+            <h3 class="text-base font-bold text-slate-900">Your Worker Profile</h3>
+            <button id="voiceFillProfileBtn" type="button" class="px-3 py-1.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold flex items-center gap-1.5">
+              <i data-lucide="mic" class="w-3.5 h-3.5"></i> Fill by Voice
+            </button>
+          </div>
+          <form id="profileForm" class="space-y-3">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-semibold text-slate-600 mb-1" for="pName">Name</label>
+                <input id="pName" required type="text" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm" />
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-slate-600 mb-1" for="pRole">Role</label>
+                <select id="pRole" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm bg-white">
+                  <option value="Carpenter">Carpenter</option>
+                  <option value="Housemaid">Housemaid</option>
+                  <option value="Plumber">Plumber</option>
+                  <option value="Electrician">Electrician</option>
+                  <option value="Cook">Cook</option>
+                  <option value="Driver">Driver</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-slate-600 mb-1" for="pArea">Area</label>
+                <input id="pArea" required type="text" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm" />
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-slate-600 mb-1" for="pPhone">WhatsApp Number</label>
+                <input id="pPhone" required type="tel" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm" />
+              </div>
+            </div>
+            <div class="flex flex-wrap gap-3 pt-1">
+              <label class="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
+                <input id="pId" type="checkbox" checked class="w-4 h-4 accent-teal-700" /> ID Verified
+              </label>
+              <label class="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
+                <input id="pPolice" type="checkbox" checked class="w-4 h-4 accent-teal-700" /> Police Verified
+              </label>
+            </div>
+            <button type="submit" class="px-4 py-2 rounded-xl bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold">
+              Save Profile
+            </button>
+          </form>
+        </div>
+
+        <div class="lg:col-span-5 bg-white rounded-2xl border border-slate-200 p-5 space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="text-base font-bold text-slate-900">Past Work &amp; Ratings</h3>
+            <span id="profileRating" class="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 text-xs font-bold"></span>
+          </div>
+          <div id="pastWorkList" class="space-y-2.5"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== 2. WHATSAPP ALERTS ===================== -->
+    <section id="viewWhatsapp" class="hidden">
+      <div class="max-w-lg mx-auto bg-white rounded-3xl border border-slate-300 shadow-lg overflow-hidden">
+        <div class="bg-[#075E54] text-white px-4 py-3 flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-full bg-emerald-400 text-[#075E54] font-extrabold text-sm flex items-center justify-center">WL</div>
+            <div>
+              <div class="text-sm font-bold">WorkLoop Alerts</div>
+              <div class="text-[11px] text-emerald-200">Daily job updates · Tap buttons below</div>
+            </div>
+          </div>
+          <button id="waReplayBtn" type="button" class="text-[11px] px-2.5 py-1 rounded-lg bg-white/15 hover:bg-white/25 font-semibold">
+            Restart
+          </button>
+        </div>
+        <div id="waStream" class="wa-bg p-4 space-y-3 h-[460px] overflow-y-auto"></div>
+      </div>
+    </section>
+
+    <!-- ===================== 3. EMPLOYERS ===================== -->
+    <section id="viewEmployer" class="hidden space-y-5">
+      <div class="inline-flex rounded-xl bg-slate-200/70 p-1">
+        <button id="empTabReqs" type="button" class="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-white text-slate-900 shadow-sm">Job Requests</button>
+        <button id="empTabPost" type="button" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-600">+ Post a Job</button>
+      </div>
+
+      <div id="empPaneReqs" class="space-y-3"></div>
+
+      <div id="empPanePost" class="hidden bg-white rounded-2xl border border-slate-200 p-5 max-w-2xl space-y-4">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+          <h3 class="text-base font-bold text-slate-900">Post a New Job</h3>
+          <button id="voiceFillJobBtn" type="button" class="px-3 py-1.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold flex items-center gap-1.5">
+            <i data-lucide="mic" class="w-3.5 h-3.5"></i> Fill by Voice
+          </button>
+        </div>
+        <form id="postJobForm" class="space-y-3">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1" for="jTitle">Job Title</label>
+              <input id="jTitle" required type="text" placeholder="e.g., Carpenter for Wardrobe Repair" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm" />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1" for="jRole">Role Needed</label>
+              <select id="jRole" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm bg-white">
+                <option value="Carpenter">Carpenter</option>
+                <option value="Housemaid">Housemaid</option>
+                <option value="Plumber">Plumber</option>
+                <option value="Electrician">Electrician</option>
+                <option value="Cook">Cook</option>
+                <option value="Driver">Driver</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1" for="jEmp">Your Name</label>
+              <input id="jEmp" required type="text" value="Meenakshi Sundaram" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm" />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1" for="jAddr">Address / Area</label>
+              <input id="jAddr" required type="text" placeholder="e.g., RS Puram, Coimbatore" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm" />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1" for="jDur">Duration</label>
+              <select id="jDur" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm bg-white">
+                <option value="Daily Wage">Daily Wage</option>
+                <option value="10–15 Day Gig">10–15 Day Gig</option>
+                <option value="Monthly">Monthly</option>
+              </select>
+            </div>
+            <div class="sm:col-span-3">
+              <button id="openWaQuickBtn" type="button" class="w-full px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 h-full">
+                <i data-lucide="message-circle" class="w-4 h-4"></i> Get Daily WhatsApp Alerts
+              </button>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1" for="jDate">Start Date</label>
+              <input id="jDate" required type="text" value="Nov 26, 2026" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm" />
+            </div>
+            <div class="sm:col-span-2">
+              <label class="block text-xs font-semibold text-slate-600 mb-1" for="jPay">Pay (Optional)</label>
+              <input id="jPay" type="text" value="Discuss after match" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm" />
+            </div>
+            <div class="sm:col-span-2">
+              <label class="block text-xs font-semibold text-slate-600 mb-1" for="jDesc">Details</label>
+              <textarea id="jDesc" rows="2" required placeholder="Short description of the work..." class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm"></textarea>
+            </div>
+          </div>
+          <button type="submit" class="px-5 py-2.5 rounded-xl bg-teal-700 hover:bg-teal-800 text-white text-sm font-bold">
+            Post Job
+          </button>
+        </form>
+      </div>
+    </section>
+
+    <!-- ===================== 4. MATCHED CHATS ===================== -->
+    <section id="viewChats" class="hidden">
+      <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
+        <div id="matchSidebar" class="md:col-span-4 bg-white rounded-2xl border border-slate-200 p-3 space-y-2"></div>
+        <div class="md:col-span-8 bg-white rounded-2xl border border-slate-200 overflow-hidden flex flex-col min-h-[430px]">
+          <div id="chatHead" class="px-4 py-3 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2"></div>
+          <div id="chatBody" class="flex-1 p-4 space-y-2.5 overflow-y-auto max-h-[290px]"></div>
+          <div id="chatFoot" class="p-3 border-t border-slate-200"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    (function () {
+      const ROLES = ['All', 'Carpenter', 'Housemaid', 'Plumber', 'Electrician', 'Cook', 'Driver'];
+
+      const state = {
+        view: 'jobs',
+        jobTab: 'feed',
+        empTab: 'reqs',
+        role: 'All',
+        duration: 'all',
+        query: '',
+        focusJobId: null,
+        activeMatchId: 'm1',
+        user: {
+          name: 'Karthikeyan S.',
+          role: 'Carpenter',
+          area: 'RS Puram, Coimbatore',
+          phone: '+91 98451 22310',
+          idVerified: true,
+          policeVerified: true,
+          rating: 4.9,
+          pastWork: [
+            { employer: 'Aravindhan K.', duration: '10–15 Day Gig', rating: 5.0, review: 'Built kitchen cabinets cleanly and on time.' },
+            { employer: 'Lakshmi Narayanan', duration: 'Daily Wage', rating: 4.8, review: 'Fixed bedroom doors and locks quickly.' }
+          ]
+        },
+        jobs: [
+          {
+            id: 'j1',
+            title: 'Carpenter for Wardrobe & Door Repair',
+            role: 'Carpenter',
+            employer: 'Meenakshi Sundaram',
+            address: 'DB Road, RS Puram, Coimbatore',
+            duration: 'Daily Wage',
+            posted: '45 mins ago',
+            startDate: 'Nov 26, 2026',
+            pay: '₹750/day · Negotiable',
+            desc: 'Align 2 bedroom wardrobe doors and mount wooden wall shelves.'
+          },
+          {
+            id: 'j2',
+            title: 'Part-Time Housemaid (15 Days)',
+            role: 'Housemaid',
+            employer: 'Revathi Natarajan',
+            address: 'NSR Road, Saibaba Colony, Coimbatore',
+            duration: '10–15 Day Gig',
+            posted: '2 hrs ago',
+            startDate: 'Nov 25, 2026',
+            pay: 'Discuss after match',
+            desc: 'Morning 8 AM – 11 AM sweeping, mopping, and kitchen cleanup.'
+          },
+          {
+            id: 'j3',
+            title: 'Monthly Apartment Plumber',
+            role: 'Plumber',
+            employer: 'Senthil Residency',
+            address: 'Avinashi Road, Peelamedu, Coimbatore',
+            duration: 'Monthly',
+            posted: '3 hrs ago',
+            startDate: 'Dec 1, 2026',
+            pay: '₹16,000/month · Negotiable',
+            desc: 'Regular tap, pipe, and water-tank maintenance for 24 flats.'
+          },
+          {
+            id: 'j4',
+            title: 'Shop Shelving Carpenter (12 Days)',
+            role: 'Carpenter',
+            employer: 'Murugan Traders',
+            address: 'Cross Cut Road, Gandhipuram, Coimbatore',
+            duration: '10–15 Day Gig',
+            posted: '5 hrs ago',
+            startDate: 'Nov 27, 2026',
+            pay: '₹800/day · Negotiable',
+            desc: 'Assemble wooden display shelves for a neighborhood store.'
+          }
+        ],
+        requests: [
+          {
+            id: 'r1',
+            jobId: 'j1',
+            name: 'Prakash R.',
+            role: 'Carpenter',
+            area: 'Gandhipuram',
+            rating: 4.7,
+            police: true,
+            jobsDone: 14,
+            review: 'Punctual and neat finish on door fittings.',
+            status: 'pending'
+          },
+          {
+            id: 'r2',
+            jobId: 'j2',
+            name: 'Selvi M.',
+            role: 'Housemaid',
+            area: 'RS Puram',
+            rating: 4.9,
+            police: true,
+            jobsDone: 22,
+            review: 'Trusted and thorough with daily home care.',
+            status: 'pending'
+          }
+        ],
+        matches: [
+          {
+            id: 'm1',
+            jobId: 'j4',
+            title: 'Shop Shelving Carpenter (12 Days)',
+            employer: 'Murugan Traders',
+            worker: 'Karthikeyan S.',
+            duration: '10–15 Day Gig',
+            done: false,
+            messages: [
+              { from: 'employer', text: 'Hi Karthikeyan, I saw your 4.9★ rating and accepted your request!' },
+              { from: 'worker', text: 'Thanks! Can we agree on ₹850/day for the 12-day work?' }
+            ]
+          }
+        ],
+        waMsgs: []
+      };
+
+      function toast(msg) {
+        const el = document.getElementById('toast');
+        document.getElementById('toastText').textContent = msg;
+        el.classList.remove('hidden');
+        clearTimeout(state._t);
+        state._t = setTimeout(() => el.classList.add('hidden'), 3000);
+      }
+
+      function initWhatsApp() {
+        state.waMsgs = [
+          {
+            from: 'bot',
+            time: '07:30 AM',
+            text: `☀️ Good Morning, ${state.user.name}!\n\n"Good work opens doors every day. Wishing you steady earnings today!"\n\nTap below to see new ${state.user.role} jobs near ${state.user.area}:`,
+            buttons: [
+              { label: 'New job postings', act: 'my_jobs' },
+              { label: 'All nearby jobs', act: 'all_jobs' }
+            ]
+          }
+        ];
+      }
+
+      function renderWA() {
+        const box = document.getElementById('waStream');
+        box.innerHTML = state.waMsgs.map(m => `
+          <div class="flex ${m.from === 'user' ? 'justify-end' : 'justify-start'}">
+            <div class="max-w-[85%] rounded-2xl px-3.5 py-2.5 shadow-sm text-xs leading-relaxed ${
+              m.from === 'user' ? 'bg-[#D9FDD3] text-slate-900' : 'bg-white text-slate-900'
+            }">
+              <div class="whitespace-pre-line">${m.text}</div>
+              <div class="text-[10px] text-slate-400 text-right mt-1">${m.time}</div>
+              ${m.buttons ? `
+                <div class="mt-2 pt-2 border-t border-slate-200 flex flex-col gap-1.5">
+                  ${m.buttons.map(b => `
+                    <button type="button" data-act="${b.act}" data-jid="${b.jid || ''}" class="wa-act w-full py-2 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-[#075E54] font-bold text-xs border border-emerald-200">
+                      ${b.label}
+                    </button>
+                  `).join('')}
+                </div>
+              ` : ''}
+            </div>
+          </div>
+        `).join('');
+        box.scrollTop = box.scrollHeight;
+        box.querySelectorAll('.wa-act').forEach(btn => {
+          btn.addEventListener('click', () => handleWA(btn.dataset.act, btn.dataset.jid));
+        });
+      }
+
+      function handleWA(act, jid) {
+        if (act === 'my_jobs' || act === 'all_jobs') {
+          state.waMsgs.push({ from: 'user', time: '07:31 AM', text: act === 'my_jobs' ? 'New job postings' : 'All nearby jobs' });
+          const list = act === 'my_jobs' ? state.jobs.filter(j => j.role === state.user.role) : state.jobs.slice(0, 3);
+          (list.length ? list : state.jobs.slice(0, 2)).forEach(j => {
+            state.waMsgs.push({
+              from: 'bot',
+              time: '07:31 AM',
+              text: `${j.title}\n📍 ${j.address}\n⏱️ ${j.duration} · Starts ${j.startDate}\n💰 ${j.pay}`,
+              buttons: [
+                { label: 'More Info', act: 'info', jid: j.id },
+                { label: 'Interested → Open App', act: 'open', jid: j.id }
+              ]
+            });
+          });
+          renderWA();
+        } else if (act === 'info') {
+          const j = state.jobs.find(x => x.id === jid);
+          if (!j) return;
+          state.waMsgs.push({ from: 'user', time: '07:32 AM', text: `More info: ${j.title}` });
+          state.waMsgs.push({
+            from: 'bot',
+            time: '07:32 AM',
+            text: `Employer: ${j.employer}\nLocation: ${j.address}\nStarts: ${j.startDate}\nWork: ${j.desc}`,
+            buttons: [{ label: 'Interested → Open in WorkLoop', act: 'open', jid: j.id }]
+          });
+          renderWA();
+        } else if (act === 'open') {
+          state.view = 'jobs';
+          state.jobTab = 'feed';
+          state.role = 'All';
+          state.duration = 'all';
+          state.focusJobId = jid;
+          toast('Opened job from WhatsApp! Tap "Send Request".');
+          render();
+        }
+      }
+
+      function renderJobs() {
+        document.getElementById('activeUserTag').textContent = `${state.user.name} · ${state.user.role} (★ ${state.user.rating.toFixed(1)})`;
+
+        const chips = document.getElementById('roleChips');
+        chips.innerHTML = ROLES.map(r => `
+          <button type="button" data-r="${r}" class="r-chip px-3 py-1 rounded-full text-xs font-semibold ${
+            state.role === r ? 'bg-teal-700 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+          }">${r}</button>
+        `).join('');
+        chips.querySelectorAll('.r-chip').forEach(b => b.addEventListener('click', () => { state.role = b.dataset.r; renderJobs(); }));
+
+        const q = state.query.trim().toLowerCase();
+        const list = state.jobs.filter(j => {
+          if (state.role !== 'All' && j.role !== state.role) return false;
+          if (state.duration !== 'all' && j.duration !== state.duration) return false;
+          if (q && !`${j.title} ${j.role} ${j.employer} ${j.address} ${j.desc}`.toLowerCase().includes(q)) return false;
+          return true;
+        });
+
+        const grid = document.getElementById('jobsGrid');
+        if (!list.length) {
+          grid.innerHTML = `<div class="col-span-full bg-white rounded-2xl border border-slate-200 p-8 text-center text-sm text-slate-500">No matching jobs right now.</div>`;
+          return;
+        }
+
+        grid.innerHTML = list.map(j => {
+          const req = state.requests.find(r => r.jobId === j.id && r.name === state.user.name);
+          const match = state.matches.find(m => m.jobId === j.id && m.worker === state.user.name);
+          return `
+            <article class="bg-white rounded-2xl border border-slate-200 p-4 flex flex-col justify-between gap-3 ${state.focusJobId === j.id ? 'card-focus' : ''}">
+              <div class="space-y-2">
+                <div class="flex items-center justify-between gap-2">
+                  <div class="flex items-center gap-1.5">
+                    <span class="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-teal-50 text-teal-800">${j.role}</span>
+                    <span class="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800">${j.duration}</span>
+                  </div>
+                  <span class="text-[11px] text-slate-400">${j.posted}</span>
+                </div>
+                <h3 class="text-base font-bold text-slate-900">${j.title}</h3>
+                <p class="text-xs text-slate-600">${j.desc}</p>
+                <div class="text-xs text-slate-600 space-y-0.5 pt-1">
+                  <div><strong>${j.employer}</strong> · ${j.address}</div>
+                  <div>Starts: <strong>${j.startDate}</strong> · <span class="text-teal-800 font-bold">${j.pay}</span></div>
+                </div>
+              </div>
+              <div class="pt-2 border-t border-slate-100">
+                ${match ? `
+                  <button type="button" data-mid="${match.id}" class="go-chat w-full py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold">Open Chat &amp; Call →</button>
+                ` : req ? `
+                  <div class="w-full py-2 rounded-xl bg-amber-50 text-amber-800 text-xs font-bold text-center">Request Sent ✓</div>
+                ` : `
+                  <button type="button" data-jid="${j.id}" class="send-req w-full py-2 rounded-xl bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold">Send Request</button>
+                `}
+              </div>
+            </article>
+          `;
+        }).join('');
+
+        grid.querySelectorAll('.send-req').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const j = state.jobs.find(x => x.id === btn.dataset.jid);
+            state.requests.unshift({
+              id: 'r' + Date.now(),
+              jobId: j.id,
+              name: state.user.name,
+              role: state.user.role,
+              area: state.user.area,
+              rating: state.user.rating,
+              police: state.user.policeVerified,
+              jobsDone: state.user.pastWork.length + 10,
+              review: state.user.pastWork[0]?.review || 'Verified worker.',
+              status: 'pending'
+            });
+            state.focusJobId = null;
+            toast(`Request sent to ${j.employer}!`);
+            render();
+          });
+        });
+        grid.querySelectorAll('.go-chat').forEach(btn => {
+          btn.addEventListener('click', () => { state.activeMatchId = btn.dataset.mid; state.view = 'chats'; render(); });
+        });
+      }
+
+      function renderProfile() {
+        document.getElementById('pName').value = state.user.name;
+        document.getElementById('pRole').value = state.user.role;
+        document.getElementById('pArea').value = state.user.area;
+        document.getElementById('pPhone').value = state.user.phone;
+        document.getElementById('profileRating').textContent = `★ ${state.user.rating.toFixed(1)}`;
+        document.getElementById('pastWorkList').innerHTML = state.user.pastWork.map(w => `
+          <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-1">
+            <div class="flex justify-between"><strong>${w.employer}</strong><span class="font-bold text-amber-700">★ ${w.rating.toFixed(1)}</span></div>
+            <div class="text-[11px] text-teal-700 font-semibold">${w.duration}</div>
+            <p class="text-slate-600">"${w.review}"</p>
+          </div>
+        `).join('');
+      }
+
+      function renderEmployer() {
+        const pend = state.requests.filter(r => r.status === 'pending').length;
+        const badge = document.getElementById('empBadge');
+        badge.textContent = pend;
+        badge.classList.toggle('hidden', pend === 0);
+
+        const wrap = document.getElementById('empPaneReqs');
+        wrap.innerHTML = state.requests.map(r => {
+          const j = state.jobs.find(x => x.id === r.jobId);
+          if (!j) return '';
+          return `
+            <div class="bg-white rounded-2xl border border-slate-200 p-4 flex flex-wrap items-center justify-between gap-3">
+              <div class="space-y-1">
+                <div class="text-xs font-bold text-teal-800">${j.title} (${j.duration})</div>
+                <div class="flex flex-wrap items-center gap-2">
+                  <strong class="text-sm text-slate-900">${r.name}</strong>
+                  <span class="text-xs text-slate-500">${r.role} · ${r.area}</span>
+                  <span class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800">★ ${r.rating.toFixed(1)} (${r.jobsDone} jobs)</span>
+                  ${r.police ? `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">Verified ✓</span>` : ''}
+                </div>
+                <p class="text-xs text-slate-600">"${r.review}"</p>
+              </div>
+              <div class="flex items-center gap-2">
+                ${r.status === 'pending' ? `
+                  <button type="button" data-act="acc" data-rid="${r.id}" class="emp-act px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold">Accept &amp; Chat</button>
+                  <button type="button" data-act="dec" data-rid="${r.id}" class="emp-act px-3 py-2 rounded-xl border border-slate-300 text-slate-600 text-xs font-semibold">Decline</button>
+                ` : `<span class="text-xs font-bold px-2.5 py-1 rounded-full ${r.status === 'accepted' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-500'}">${r.status}</span>`}
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        wrap.querySelectorAll('.emp-act').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const req = state.requests.find(x => x.id === btn.dataset.rid);
+            const j = state.jobs.find(x => x.id === req.jobId);
+            if (btn.dataset.act === 'acc') {
+              req.status = 'accepted';
+              const m = {
+                id: 'm' + Date.now(),
+                jobId: j.id,
+                title: j.title,
+                employer: j.employer,
+                worker: req.name,
+                duration: j.duration,
+                done: false,
+                messages: [{ from: 'employer', text: `Hi ${req.name}, I accepted your request for ${j.title}. Let's discuss pay & timing!` }]
+              };
+              state.matches.unshift(m);
+              state.activeMatchId = m.id;
+              state.view = 'chats';
+              toast(`Matched with ${req.name}! Chat unlocked.`);
+            } else {
+              req.status = 'declined';
+              toast('Request declined.');
+            }
+            render();
+          });
+        });
+      }
+
+      function renderChats() {
+        document.getElementById('chatBadge').textContent = state.matches.length;
+        const side = document.getElementById('matchSidebar');
+        side.innerHTML = state.matches.map(m => `
+          <button type="button" data-mid="${m.id}" class="m-pick w-full text-left p-3 rounded-xl border text-xs ${
+            state.activeMatchId === m.id ? 'bg-teal-50 border-teal-700' : 'bg-slate-50 border-slate-200'
+          }">
+            <div class="font-bold text-slate-900">${m.worker} ↔ ${m.employer}</div>
+            <div class="text-slate-500 truncate mt-0.5">${m.title}</div>
+          </button>
+        `).join('');
+        side.querySelectorAll('.m-pick').forEach(b => b.addEventListener('click', () => { state.activeMatchId = b.dataset.mid; renderChats(); }));
+
+        const m = state.matches.find(x => x.id === state.activeMatchId) || state.matches[0];
+        if (!m) return;
+
+        document.getElementById('chatHead').innerHTML = `
+          <div>
+            <div class="text-sm font-bold text-slate-900">${m.title}</div>
+            <div class="text-xs text-slate-500">${m.worker} ↔ ${m.employer}</div>
+          </div>
+          <div class="flex gap-2">
+            <button id="callBtn" type="button" class="px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-xs font-bold flex items-center gap-1"><i data-lucide="phone" class="w-3.5 h-3.5"></i> Call</button>
+            ${!m.done ? `<button id="doneBtn" type="button" class="px-3 py-1.5 rounded-xl bg-orange-600 text-white text-xs font-bold">Mark Done &amp; Rate</button>` : ''}
+          </div>
+        `;
+        const body = document.getElementById('chatBody');
+        body.innerHTML = m.messages.map(msg => `
+          <div class="flex ${msg.from === 'worker' ? 'justify-end' : 'justify-start'}">
+            <div class="max-w-[80%] rounded-2xl px-3.5 py-2 text-xs ${msg.from === 'worker' ? 'bg-teal-700 text-white' : 'bg-slate-100 text-slate-800'}">
+              ${msg.text}
+            </div>
+          </div>
+        `).join('');
+        body.scrollTop = body.scrollHeight;
+
+        document.getElementById('chatFoot').innerHTML = `
+          <form id="chatForm" class="flex gap-2">
+            <select id="chatWho" class="px-2 py-2 rounded-xl border border-slate-300 text-xs bg-slate-50">
+              <option value="worker">Worker</option>
+              <option value="employer">Employer</option>
+            </select>
+            <input id="chatTxt" type="text" placeholder="Type message or price offer..." class="flex-1 px-3 py-2 rounded-xl border border-slate-300 text-xs" />
+            <button type="submit" class="px-4 py-2 rounded-xl bg-teal-700 text-white text-xs font-bold">Send</button>
+          </form>
+        `;
+        document.getElementById('callBtn').addEventListener('click', () => toast(`Calling ${m.employer}...`));
+        const doneBtn = document.getElementById('doneBtn');
+        if (doneBtn) {
+          doneBtn.addEventListener('click', () => {
+            m.done = true;
+            state.user.pastWork.unshift({ employer: m.employer, duration: m.duration, rating: 5.0, review: `Completed ${m.title} smoothly.` });
+            toast('Job completed and 5★ rating added to profile!');
+            render();
+          });
+        }
+        document.getElementById('chatForm').addEventListener('submit', e => {
+          e.preventDefault();
+          const t = document.getElementById('chatTxt').value.trim();
+          if (!t) return;
+          m.messages.push({ from: document.getElementById('chatWho').value, text: t });
+          renderChats();
+        });
+        if (window.lucide) window.lucide.createIcons();
+      }
+
+      function handleVoice(text) {
+        const t = text.toLowerCase();
+        document.getElementById('voiceResultText').textContent = `Heard: "${text}"`;
+        const map = { carpenter: 'Carpenter', housemaid: 'Housemaid', maid: 'Housemaid', plumber: 'Plumber', electrician: 'Electrician', cook: 'Cook', driver: 'Driver' };
+        state.role = 'All';
+        for (const [k, v] of Object.entries(map)) { if (t.includes(k)) { state.role = v; break; } }
+        if (t.includes('daily')) state.duration = 'Daily Wage';
+        else if (t.includes('15') || t.includes('10')) state.duration = '10–15 Day Gig';
+        else if (t.includes('month')) state.duration = 'Monthly';
+        else state.duration = 'all';
+        document.getElementById('durationFilter').value = state.duration;
+        renderJobs();
+      }
+
+      function render() {
+        ['viewJobs', 'viewWhatsapp', 'viewEmployer', 'viewChats'].forEach(id => {
+          const map = { viewJobs: 'jobs', viewWhatsapp: 'whatsapp', viewEmployer: 'employer', viewChats: 'chats' };
+          document.getElementById(id).classList.toggle('hidden', state.view !== map[id]);
+        });
+        const navs = { navJobs: 'jobs', navWhatsapp: 'whatsapp', navEmployer: 'employer', navChats: 'chats' };
+        Object.entries(navs).forEach(([id, v]) => {
+          document.getElementById(id).className = state.view === v
+            ? 'px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-teal-700 text-white flex items-center gap-1.5'
+            : 'px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold text-slate-700 hover:bg-slate-100 flex items-center gap-1.5';
+        });
+
+        document.getElementById('paneFeed').classList.toggle('hidden', state.jobTab !== 'feed');
+        document.getElementById('paneProfile').classList.toggle('hidden', state.jobTab !== 'profile');
+        document.getElementById('tabFeed').className = state.jobTab === 'feed' ? 'px-3.5 py-1.5 rounded-lg text-xs font-bold bg-white text-slate-900 shadow-sm' : 'px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-600';
+        document.getElementById('tabProfile').className = state.jobTab === 'profile' ? 'px-3.5 py-1.5 rounded-lg text-xs font-bold bg-white text-slate-900 shadow-sm' : 'px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-600';
+
+        document.getElementById('empPaneReqs').classList.toggle('hidden', state.empTab !== 'reqs');
+        document.getElementById('empPanePost').classList.toggle('hidden', state.empTab !== 'post');
+        document.getElementById('empTabReqs').className = state.empTab === 'reqs' ? 'px-3.5 py-1.5 rounded-lg text-xs font-bold bg-white text-slate-900 shadow-sm' : 'px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-600';
+        document.getElementById('empTabPost').className = state.empTab === 'post' ? 'px-3.5 py-1.5 rounded-lg text-xs font-bold bg-white text-slate-900 shadow-sm' : 'px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-600';
+
+        renderJobs();
+        renderProfile();
+        renderWA();
+        renderEmployer();
+        renderChats();
+        if (window.lucide) window.lucide.createIcons();
+      }
+
+      document.getElementById('navJobs').addEventListener('click', () => { state.view = 'jobs'; render(); });
+      document.getElementById('navWhatsapp').addEventListener('click', () => { state.view = 'whatsapp'; render(); });
+      document.getElementById('openWaQuickBtn').addEventListener('click', () => { state.view = 'whatsapp'; render(); });
+      document.getElementById('navEmployer').addEventListener('click', () => { state.view = 'employer'; render(); });
+      document.getElementById('navChats').addEventListener('click', () => { state.view = 'chats'; render(); });
+      document.getElementById('tabFeed').addEventListener('click', () => { state.jobTab = 'feed'; render(); });
+      document.getElementById('tabProfile').addEventListener('click', () => { state.jobTab = 'profile'; render(); });
+      document.getElementById('empTabReqs').addEventListener('click', () => { state.empTab = 'reqs'; render(); });
+      document.getElementById('empTabPost').addEventListener('click', () => { state.empTab = 'post'; render(); });
+
+      document.getElementById('searchBox').addEventListener('input', e => { state.query = e.target.value; renderJobs(); });
+      document.getElementById('durationFilter').addEventListener('change', e => { state.duration = e.target.value; renderJobs(); });
+      document.getElementById('waReplayBtn').addEventListener('click', () => { initWhatsApp(); renderWA(); });
+
+      document.getElementById('voiceSearchBtn').addEventListener('click', () => {
+        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const btn = document.getElementById('voiceSearchBtn');
+        const txt = document.getElementById('voiceBtnText');
+        if (SR) {
+          try {
+            const rec = new SR();
+            rec.lang = document.getElementById('langSelect').value;
+            btn.classList.add('pulse-ring');
+            txt.textContent = 'Listening...';
+            rec.onresult = ev => { btn.classList.remove('pulse-ring'); txt.textContent = 'Speak'; handleVoice(ev.results[0][0].transcript); };
+            rec.onerror = () => { btn.classList.remove('pulse-ring'); txt.textContent = 'Speak'; handleVoice('Carpenter daily wage jobs'); };
+            rec.start();
+            return;
+          } catch (e) {}
+        }
+        handleVoice('Carpenter daily wage jobs');
+      });
+
+      document.getElementById('voiceFillProfileBtn').addEventListener('click', () => {
+        document.getElementById('pName').value = 'Vigneshwaran T.';
+        document.getElementById('pRole').value = 'Electrician';
+        document.getElementById('pArea').value = 'Peelamedu, Coimbatore';
+        document.getElementById('pPhone').value = '+91 99001 44521';
+        toast('Profile filled by voice!');
+      });
+
+      document.getElementById('profileForm').addEventListener('submit', e => {
+        e.preventDefault();
+        state.user.name = document.getElementById('pName').value.trim();
+        state.user.role = document.getElementById('pRole').value;
+        state.user.area = document.getElementById('pArea').value.trim();
+        state.user.phone = document.getElementById('pPhone').value.trim();
+        state.user.idVerified = document.getElementById('pId').checked;
+        state.user.policeVerified = document.getElementById('pPolice').checked;
+        initWhatsApp();
+        toast('Profile saved!');
+        render();
+      });
+
+      document.getElementById('voiceFillJobBtn').addEventListener('click', () => {
+        document.getElementById('jTitle').value = 'Electrician for 10-Day Home Wiring';
+        document.getElementById('jRole').value = 'Electrician';
+        document.getElementById('jAddr').value = 'RS Puram, Coimbatore';
+        document.getElementById('jDur').value = '10–15 Day Gig';
+        document.getElementById('jDate').value = 'Nov 28, 2026';
+        document.getElementById('jPay').value = '₹800/day · Negotiable';
+        document.getElementById('jDesc').value = 'Upgrade switches, ceiling fans, and inverter wiring.';
+        toast('Job form filled by voice!');
+      });
+
+      document.getElementById('postJobForm').addEventListener('submit', e => {
+        e.preventDefault();
+        const nj = {
+          id: 'j' + Date.now(),
+          title: document.getElementById('jTitle').value.trim(),
+          role: document.getElementById('jRole').value,
+          employer: document.getElementById('jEmp').value.trim(),
+          address: document.getElementById('jAddr').value.trim(),
+          duration: document.getElementById('jDur').value,
+          posted: 'Just now',
+          startDate: document.getElementById('jDate').value.trim(),
+          pay: document.getElementById('jPay').value.trim() || 'Discuss after match',
+          desc: document.getElementById('jDesc').value.trim()
+        };
+        state.jobs.unshift(nj);
+        e.target.reset();
+        state.view = 'jobs';
+        state.jobTab = 'feed';
+        state.focusJobId = nj.id;
+        toast('Job posted!');
+        render();
+      });
+
+      initWhatsApp();
+      render();
+    })();
+  </script>
+</body>
+</html>
