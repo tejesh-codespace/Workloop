@@ -10,10 +10,10 @@ A job-seeker-first web application connecting skilled blue-collar workers (carpe
 
 ## Project Structure
 - `index.html` — Standalone responsive web app
-- `backend/lambda_handlers.py` — AWS Lambda API handlers (jobs, requests, ratings & work history)
-- `backend/whatsapp_webhook.js` — WhatsApp Business Cloud API interactive button webhook
-- `backend/voice_assistant.js` — ElevenLabs multilingual voice integration helper
-- `infrastructure/template.yaml` — AWS SAM template (DynamoDB tables & encrypted S3 bucket)
+- `lambda_handlers.py` — AWS Lambda API handlers (jobs, requests, ratings & work history)
+- `whatsapp_webhook.js` — WhatsApp Business Cloud API interactive button webhook
+- `voice_assistant.js` — ElevenLabs multilingual voice integration helper
+- `template.yaml` — AWS SAM template (DynamoDB tables & encrypted S3 bucket)
 
 ## Run Locally
 Open `index.html` directly in any browser.
